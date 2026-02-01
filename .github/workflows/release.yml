@@ -19,6 +19,10 @@ jobs:
           - name: linux-x86_64
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+          - name: linux-x86_64-cuda
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            features: cuda
           - name: linux-arm64
             os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
@@ -54,7 +58,12 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/altunenes/parakeet-rs.git /tmp/parakeet-rs
           cd /tmp/parakeet-rs
-          cargo build --release --examples --target ${{ matrix.target }}
+          FEATURES="${{ matrix.features }}"
+          if [ -n "$FEATURES" ]; then
+            cargo build --release --examples --target ${{ matrix.target }} --features "$FEATURES"
+          else
+            cargo build --release --examples --target ${{ matrix.target }}
+          fi
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
           CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc

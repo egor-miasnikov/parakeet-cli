@@ -85,26 +85,35 @@ make check
 
 ### Docker
 
-Two image variants are available:
+Available image variants:
 
-| Image | Size | Models | Use case |
-|-------|------|--------|----------|
-| `slim` / `latest` | ~100MB | Volume mount | Production with shared models |
-| `full` | ~2.5GB | Included | Standalone, ready to use |
+| Image | Size | GPU | Models | Platforms |
+|-------|------|-----|--------|-----------|
+| `slim` / `latest` | ~200MB | ❌ | Volume | amd64, arm64 |
+| `full` | ~2.6GB | ❌ | Included | amd64, arm64 |
+| `cuda` | ~4GB | ✅ | Volume | amd64 |
+| `cuda-full` | ~7GB | ✅ | Included | amd64 |
 
 ```bash
-# Slim - mount models from host
+# CPU - mount models from host
 docker run --rm \
   -v ~/.parakeet:/models:ro \
   -v $(pwd):/data:ro \
   ghcr.io/egor-miasnikov/parakeet-cli:slim \
   --input /data/audio.wav
 
-# Full - models included
+# CPU - models included
 docker run --rm \
   -v $(pwd):/data:ro \
   ghcr.io/egor-miasnikov/parakeet-cli:full \
   --input /data/audio.wav
+
+# GPU (NVIDIA) - requires nvidia-docker
+docker run --rm --gpus all \
+  -v ~/.parakeet:/models:ro \
+  -v $(pwd):/data:ro \
+  ghcr.io/egor-miasnikov/parakeet-cli:cuda \
+  --input /data/audio.wav --device cuda
 ```
 
 Build locally:

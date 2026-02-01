@@ -21,10 +21,12 @@ permissions:
   packages: write
 
 jobs:
-  build:
-    name: Build & Push
+  # ==========================================================================
+  # CPU Images (amd64 + arm64)
+  # ==========================================================================
+  build-cpu:
+    name: Build CPU
     runs-on: ubuntu-latest
-    # Only run if Release succeeded or manual trigger
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     strategy:
       fail-fast: false
@@ -44,7 +46,6 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG="${{ inputs.tag }}"
           else
-            # Get tag from the Release workflow run (it's in head_branch for tag-triggered runs)
             TAG="${{ github.event.workflow_run.head_branch }}"
           fi
           VERSION=${TAG#v}
@@ -72,13 +73,8 @@ jobs:
           mv parakeet-cli-*/bin/* binaries/arm64/
           rm -rf parakeet-cli-* linux-arm64.tar.gz
 
-          # Verify binaries
-          echo "=== amd64 binaries ==="
-          ls -la binaries/amd64/
-          file binaries/amd64/*
-          echo "=== arm64 binaries ==="
-          ls -la binaries/arm64/
-          file binaries/arm64/*
+          # Verify
+          ls -la binaries/*/
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -110,6 +106,92 @@ jobs:
           file: Dockerfile.release
           target: ${{ matrix.target }}
           platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test image
+        if: matrix.target == 'runtime'
+        run: |
+          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag_suffix }} --version
+
+  # ==========================================================================
+  # CUDA Images (amd64 only)
+  # ==========================================================================
+  build-cuda:
+    name: Build CUDA
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: runtime
+            tag_suffix: cuda
+          - target: full
+            tag_suffix: cuda-full
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.workflow_run.head_branch }}"
+          fi
+          VERSION=${TAG#v}
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building CUDA for tag: $TAG, version: $VERSION"
+
+      - name: Download CUDA release binaries
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          BASE_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}"
+
+          # Download and extract Linux x86_64 CUDA
+          mkdir -p binaries/cuda
+          curl -L -o linux-cuda.tar.gz "${BASE_URL}/parakeet-cli-${VERSION}-linux-x86_64-cuda.tar.gz"
+          tar xzf linux-cuda.tar.gz
+          mv parakeet-cli-*/bin/* binaries/cuda/
+          rm -rf parakeet-cli-* linux-cuda.tar.gz
+
+          # Verify
+          ls -la binaries/cuda/
+          file binaries/cuda/*
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.version.outputs.version }}-${{ matrix.tag_suffix }}
+            type=raw,value=${{ matrix.tag_suffix }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.cuda
+          target: ${{ matrix.target }}
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

@@ -1,0 +1,67 @@
+# syntax=docker/dockerfile:1
+#
+# Dockerfile.cuda - NVIDIA GPU support with CUDA
+# Requires: nvidia-docker runtime
+#
+# Usage:
+#   docker run --gpus all ghcr.io/egor-miasnikov/parakeet-cli:cuda --input /data/audio.wav --device cuda
+#
+
+# =============================================================================
+# Stage 1: Runtime image with CUDA (slim)
+# =============================================================================
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS runtime
+
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        jq \
+        ca-certificates \
+        curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy pre-built CUDA binaries from build context
+COPY binaries/cuda/parakeet-transcribe /usr/local/bin/parakeet-transcribe
+COPY binaries/cuda/parakeet-diarize /usr/local/bin/parakeet-diarize
+COPY bin/parakeet-cli /usr/local/bin/parakeet-cli
+
+RUN chmod +x /usr/local/bin/parakeet-cli \
+             /usr/local/bin/parakeet-transcribe \
+             /usr/local/bin/parakeet-diarize
+
+# Set environment
+ENV PARAKEET_MODELS_DIR=/models
+ENV PARAKEET_TRANSCRIBE_BIN=/usr/local/bin/parakeet-transcribe
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+# Create directories
+RUN mkdir -p /models /data
+
+# Validate installation
+RUN parakeet-cli --version
+
+WORKDIR /data
+
+ENTRYPOINT ["parakeet-cli"]
+CMD ["--help"]
+
+# =============================================================================
+# Stage 2: Full image with CUDA and models
+# =============================================================================
+FROM runtime AS full
+
+# HuggingFace model URLs
+ARG TDT_BASE=https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main
+
+# Download TDT model (~2.4GB)
+RUN mkdir -p /models/tdt && \
+    curl -L -o /models/tdt/encoder-model.onnx "${TDT_BASE}/encoder-model.onnx" && \
+    curl -L -o /models/tdt/encoder-model.onnx.data "${TDT_BASE}/encoder-model.onnx.data" && \
+    curl -L -o /models/tdt/decoder_joint-model.onnx "${TDT_BASE}/decoder_joint-model.onnx" && \
+    curl -L -o /models/tdt/vocab.txt "${TDT_BASE}/vocab.txt"
+
+WORKDIR /data
+
+ENTRYPOINT ["parakeet-cli"]
+CMD ["--help"]
