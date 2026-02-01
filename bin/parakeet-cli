@@ -107,6 +107,12 @@ command -v jq >/dev/null 2>&1 || error_exit "jq is required but not installed"
 # Validate input file
 [[ -z "$INPUT_FILE" ]] && error_exit "No input file specified"
 
+# Validate model type first (whitelist) - better UX to catch this early
+case "$MODEL_TYPE" in
+    tdt|tdt-0.6b|ctc|ctc-1.1b) ;;
+    *) error_exit "Invalid model type: $MODEL_TYPE (allowed: tdt, tdt-0.6b, ctc, ctc-1.1b)" ;;
+esac
+
 # Resolve to absolute path and validate
 INPUT_FILE_RESOLVED=$(realpath -- "$INPUT_FILE" 2>/dev/null) || error_exit "Invalid path: $INPUT_FILE"
 [[ ! -f "$INPUT_FILE_RESOLVED" ]] && error_exit "Input file not found: $INPUT_FILE"
@@ -114,12 +120,6 @@ INPUT_FILE_RESOLVED=$(realpath -- "$INPUT_FILE" 2>/dev/null) || error_exit "Inva
 # Validate models directory
 MODELS_DIR_RESOLVED=$(realpath -- "$MODELS_DIR" 2>/dev/null) || error_exit "Invalid models directory: $MODELS_DIR"
 [[ ! -d "$MODELS_DIR_RESOLVED" ]] && error_exit "Models directory not found: $MODELS_DIR"
-
-# Validate model type (whitelist)
-case "$MODEL_TYPE" in
-    tdt|tdt-0.6b|ctc|ctc-1.1b) ;;
-    *) error_exit "Invalid model type: $MODEL_TYPE (allowed: tdt, tdt-0.6b, ctc, ctc-1.1b)" ;;
-esac
 
 # Check transcription binary (only needed when actually transcribing)
 command -v "$TRANSCRIBE_BIN" >/dev/null 2>&1 || error_exit "parakeet-transcribe not found in PATH"

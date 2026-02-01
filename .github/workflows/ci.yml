@@ -61,6 +61,7 @@ jobs:
 
       - name: Build binaries
         run: |
+          rm -rf /tmp/parakeet-rs-build
           git clone --depth 1 https://github.com/altunenes/parakeet-rs.git /tmp/parakeet-rs-build
           cd /tmp/parakeet-rs-build
           cargo build --release --examples --target ${{ matrix.target }}
