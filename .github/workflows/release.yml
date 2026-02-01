@@ -1,0 +1,132 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - name: linux-x86_64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: tar.gz
+          - name: macos-x86_64
+            os: macos-latest
+            target: x86_64-apple-darwin
+            archive: tar.gz
+          - name: macos-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            archive: tar.gz
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: release-${{ matrix.target }}-cargo
+
+      - name: Build parakeet-rs binaries
+        run: |
+          git clone --depth 1 https://github.com/altunenes/parakeet-rs.git /tmp/parakeet-rs
+          cd /tmp/parakeet-rs
+          cargo build --release --examples --target ${{ matrix.target }}
+
+      - name: Prepare release archive
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          ARCHIVE_NAME="parakeet-cli-${VERSION}-${{ matrix.name }}"
+
+          mkdir -p "$ARCHIVE_NAME/bin"
+          cp bin/parakeet-cli "$ARCHIVE_NAME/bin/"
+          cp /tmp/parakeet-rs/target/${{ matrix.target }}/release/examples/raw "$ARCHIVE_NAME/bin/parakeet-transcribe"
+          cp /tmp/parakeet-rs/target/${{ matrix.target }}/release/examples/diarization "$ARCHIVE_NAME/bin/parakeet-diarize"
+          chmod +x "$ARCHIVE_NAME/bin/"*
+
+          cp README.md "$ARCHIVE_NAME/" 2>/dev/null || true
+          cp LICENSE "$ARCHIVE_NAME/" 2>/dev/null || true
+
+          cat > "$ARCHIVE_NAME/install.sh" << 'EOF'
+          #!/bin/bash
+          set -e
+          INSTALL_DIR="${1:-$HOME/.local/bin}"
+          mkdir -p "$INSTALL_DIR"
+          cp bin/* "$INSTALL_DIR/"
+          chmod +x "$INSTALL_DIR/parakeet-cli" "$INSTALL_DIR/parakeet-transcribe" "$INSTALL_DIR/parakeet-diarize"
+          echo "Installed to $INSTALL_DIR"
+          echo "Make sure $INSTALL_DIR is in your PATH"
+          EOF
+          chmod +x "$ARCHIVE_NAME/install.sh"
+
+          tar -czvf "$ARCHIVE_NAME.tar.gz" "$ARCHIVE_NAME"
+          echo "ARCHIVE_NAME=$ARCHIVE_NAME.tar.gz" >> $GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ env.ARCHIVE_NAME }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          find . -name "*.tar.gz" -exec mv {} . \;
+          sha256sum *.tar.gz > checksums-sha256.txt
+          cat checksums-sha256.txt
+
+      - name: Extract version and changelog
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Try to extract changelog section for this version
+          if [ -f CHANGELOG.md ]; then
+            sed -n "/^## \[${VERSION}\]/,/^## \[/p" CHANGELOG.md | head -n -1 > release_notes.md
+          fi
+
+          if [ ! -s release_notes.md ]; then
+            echo "Release v${VERSION}" > release_notes.md
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.version.outputs.version }}
+          body_path: release_notes.md
+          files: |
+            artifacts/*.tar.gz
+            artifacts/checksums-sha256.txt
+          draft: false
+          prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}

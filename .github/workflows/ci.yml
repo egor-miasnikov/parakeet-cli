@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Run unit tests
+        run: make test-unit
+
+  lint:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run shellcheck
+        run: shellcheck bin/parakeet-cli
+
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            /tmp/parakeet-rs-build/target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('Makefile') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-
+
+      - name: Build binaries
+        run: |
+          git clone --depth 1 https://github.com/altunenes/parakeet-rs.git /tmp/parakeet-rs-build
+          cd /tmp/parakeet-rs-build
+          cargo build --release --examples --target ${{ matrix.target }}
+          mkdir -p $GITHUB_WORKSPACE/bin
+          cp target/${{ matrix.target }}/release/examples/raw $GITHUB_WORKSPACE/bin/parakeet-transcribe
+          cp target/${{ matrix.target }}/release/examples/diarization $GITHUB_WORKSPACE/bin/parakeet-diarize
+
+      - name: Verify build
+        run: |
+          ls -la bin/
+          file bin/parakeet-transcribe
