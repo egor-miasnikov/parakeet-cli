@@ -1,7 +1,7 @@
 # parakeet-cli
 
-[![CI](https://github.com/e90rm/parakeet-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/e90rm/parakeet-cli/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/e90rm/parakeet-cli)](https://github.com/e90rm/parakeet-cli/releases)
+[![CI](https://github.com/egor-miasnikov/parakeet-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/egor-miasnikov/parakeet-cli/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/egor-miasnikov/parakeet-cli)](https://github.com/egor-miasnikov/parakeet-cli/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Shell: Bash](https://img.shields.io/badge/Shell-Bash-green.svg)](https://www.gnu.org/software/bash/)
 
@@ -32,17 +32,17 @@ parakeet-cli --input audio.wav
 
 ### From Release (recommended)
 
-Download pre-built binaries from [Releases](https://github.com/e90rm/parakeet-cli/releases):
+Download pre-built binaries from [Releases](https://github.com/egor-miasnikov/parakeet-cli/releases):
 
 ```bash
 # Linux x86_64
-curl -LO https://github.com/e90rm/parakeet-cli/releases/latest/download/parakeet-cli-linux-x86_64.tar.gz
+curl -LO https://github.com/egor-miasnikov/parakeet-cli/releases/latest/download/parakeet-cli-linux-x86_64.tar.gz
 tar xzf parakeet-cli-linux-x86_64.tar.gz
 cd parakeet-cli-*-linux-x86_64
 ./install.sh
 
 # macOS ARM (Apple Silicon)
-curl -LO https://github.com/e90rm/parakeet-cli/releases/latest/download/parakeet-cli-macos-arm64.tar.gz
+curl -LO https://github.com/egor-miasnikov/parakeet-cli/releases/latest/download/parakeet-cli-macos-arm64.tar.gz
 tar xzf parakeet-cli-macos-arm64.tar.gz
 cd parakeet-cli-*-macos-arm64
 ./install.sh
