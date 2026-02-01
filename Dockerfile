@@ -49,7 +49,7 @@ ENV PARAKEET_MODELS_DIR=/models
 ENV PARAKEET_TRANSCRIBE_BIN=/usr/local/bin/parakeet-transcribe
 
 # Create non-root user for security
-RUN useradd -r -u 1000 -m parakeet
+RUN useradd -r -m parakeet
 
 # Create models directory with proper ownership
 RUN mkdir -p /models /data && \
