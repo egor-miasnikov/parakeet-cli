@@ -5,7 +5,6 @@ on:
   workflow_run:
     workflows: ["Release"]
     types: [completed]
-    branches: [main]
   workflow_dispatch:
     inputs:
       tag:
@@ -45,15 +44,13 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG="${{ inputs.tag }}"
           else
-            # Get tag from the Release workflow run
-            TAG=$(gh run view ${{ github.event.workflow_run.id }} --json headBranch -q '.headBranch')
+            # Get tag from the Release workflow run (it's in head_branch for tag-triggered runs)
+            TAG="${{ github.event.workflow_run.head_branch }}"
           fi
           VERSION=${TAG#v}
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Building for tag: $TAG, version: $VERSION"
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - name: Download release binaries
         run: |
