@@ -9,22 +9,25 @@ TRANSCRIBE_BIN="${PARAKEET_TRANSCRIBE_BIN:-parakeet-transcribe}"
 MODEL_TYPE="tdt"
 INPUT_FILE=""
 OUTPUT_FORMAT="json"
+# shellcheck disable=SC2034  # Reserved for future use
 TIMESTAMPS="words"
+# shellcheck disable=SC2034  # Reserved for future use
 DIARIZE=false
+# shellcheck disable=SC2034  # Reserved for future use
 MAX_SPEAKERS=4
 DEVICE=""
 
 # Error output helper (always valid JSON on stderr)
 error_exit() {
-    jq -n --arg msg "$1" '{"error": $msg}' >&2
+    if command -v jq >/dev/null 2>&1; then
+        jq -n --arg msg "$1" '{"error": $msg}' >&2
+    else
+        echo "{\"error\": \"$1\"}" >&2
+    fi
     exit 1
 }
 
-# Check dependencies
-command -v jq >/dev/null 2>&1 || error_exit "jq is required but not installed"
-command -v "$TRANSCRIBE_BIN" >/dev/null 2>&1 || error_exit "parakeet-transcribe not found in PATH"
-
-# Parse arguments
+# Parse arguments first (allows --help/--version without dependencies)
 while [[ $# -gt 0 ]]; do
     case $1 in
         --input)
@@ -94,6 +97,10 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Check dependencies (after argument parsing so --help/--version work without them)
+command -v jq >/dev/null 2>&1 || error_exit "jq is required but not installed"
+command -v "$TRANSCRIBE_BIN" >/dev/null 2>&1 || error_exit "parakeet-transcribe not found in PATH"
 
 # Validate input file
 [[ -z "$INPUT_FILE" ]] && error_exit "No input file specified"
