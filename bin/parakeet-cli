@@ -47,14 +47,17 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --timestamps)
+            # shellcheck disable=SC2034  # Reserved for future use
             TIMESTAMPS="$2"
             shift 2
             ;;
         --diarize)
+            # shellcheck disable=SC2034  # Reserved for future use
             DIARIZE=true
             shift
             ;;
         --max-speakers)
+            # shellcheck disable=SC2034  # Reserved for future use
             MAX_SPEAKERS="$2"
             shift 2
             ;;
@@ -98,9 +101,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Check dependencies (after argument parsing so --help/--version work without them)
+# Check jq dependency (needed for JSON output)
 command -v jq >/dev/null 2>&1 || error_exit "jq is required but not installed"
-command -v "$TRANSCRIBE_BIN" >/dev/null 2>&1 || error_exit "parakeet-transcribe not found in PATH"
 
 # Validate input file
 [[ -z "$INPUT_FILE" ]] && error_exit "No input file specified"
@@ -118,6 +120,9 @@ case "$MODEL_TYPE" in
     tdt|tdt-0.6b|ctc|ctc-1.1b) ;;
     *) error_exit "Invalid model type: $MODEL_TYPE (allowed: tdt, tdt-0.6b, ctc, ctc-1.1b)" ;;
 esac
+
+# Check transcription binary (only needed when actually transcribing)
+command -v "$TRANSCRIBE_BIN" >/dev/null 2>&1 || error_exit "parakeet-transcribe not found in PATH"
 
 # Timing using portable date (milliseconds)
 START_MS=$(($(date +%s) * 1000 + $(date +%N 2>/dev/null | cut -c1-3 || echo 0)))
