@@ -54,18 +54,31 @@ jobs:
 
       - name: Download release binaries
         run: |
-          mkdir -p binaries
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          BASE_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}"
 
-          # Download Linux x86_64 binaries
-          curl -L -o linux-x86_64.tar.gz \
-            "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/parakeet-cli-${{ steps.version.outputs.version }}-linux-x86_64.tar.gz"
+          # Download and extract Linux x86_64
+          mkdir -p binaries/amd64
+          curl -L -o linux-x86_64.tar.gz "${BASE_URL}/parakeet-cli-${VERSION}-linux-x86_64.tar.gz"
           tar xzf linux-x86_64.tar.gz
-          mv parakeet-cli-*/bin/* binaries/
+          mv parakeet-cli-*/bin/* binaries/amd64/
           rm -rf parakeet-cli-* linux-x86_64.tar.gz
 
+          # Download and extract Linux arm64
+          mkdir -p binaries/arm64
+          curl -L -o linux-arm64.tar.gz "${BASE_URL}/parakeet-cli-${VERSION}-linux-arm64.tar.gz"
+          tar xzf linux-arm64.tar.gz
+          mv parakeet-cli-*/bin/* binaries/arm64/
+          rm -rf parakeet-cli-* linux-arm64.tar.gz
+
           # Verify binaries
-          ls -la binaries/
-          file binaries/*
+          echo "=== amd64 binaries ==="
+          ls -la binaries/amd64/
+          file binaries/amd64/*
+          echo "=== arm64 binaries ==="
+          ls -la binaries/arm64/
+          file binaries/arm64/*
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -96,7 +109,7 @@ jobs:
           context: .
           file: Dockerfile.release
           target: ${{ matrix.target }}
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

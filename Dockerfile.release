@@ -17,9 +17,10 @@ RUN apt-get update && \
         curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy pre-built binaries from build context
-COPY binaries/parakeet-transcribe /usr/local/bin/parakeet-transcribe
-COPY binaries/parakeet-diarize /usr/local/bin/parakeet-diarize
+# Copy pre-built binaries from build context (architecture-specific)
+ARG TARGETARCH
+COPY binaries/${TARGETARCH}/parakeet-transcribe /usr/local/bin/parakeet-transcribe
+COPY binaries/${TARGETARCH}/parakeet-diarize /usr/local/bin/parakeet-diarize
 COPY bin/parakeet-cli /usr/local/bin/parakeet-cli
 
 RUN chmod +x /usr/local/bin/parakeet-cli \
