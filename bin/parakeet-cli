@@ -63,6 +63,11 @@ while [[ $# -gt 0 ]]; do
             ;;
         --device)
             DEVICE="$2"
+            # Validate device type (whitelist)
+            case "$DEVICE" in
+                cpu|cuda|coreml|"") ;;
+                *) error_exit "Invalid device: $DEVICE (allowed: cpu, cuda, coreml)" ;;
+            esac
             shift 2
             ;;
         --version)
@@ -141,13 +146,15 @@ PROCESSING_TIME=$((END_MS - START_MS))
 # Parse output and convert to JSON
 if [[ "$OUTPUT_FORMAT" == "json" ]]; then
     # Extract text (filter out status lines and CoreML warnings)
-    TEXT=$(echo "$OUTPUT" | grep -v "^Audio info:" | grep -v "^Loading" | grep -v "^Sentencess:" | grep -v "^\[" | grep -v "^✓" | grep -v "^Words" | grep -v "^Context leak" | head -1 || echo "")
+    # Use printf '%s\n' instead of echo to safely handle special characters
+    TEXT=$(printf '%s\n' "$OUTPUT" | grep -v "^Audio info:" | grep -v "^Loading" | grep -v "^Sentencess:" | grep -v "^\[" | grep -v "^✓" | grep -v "^Words" | grep -v "^Context leak" | head -1 || echo "")
 
     # Build segments array safely with jq
-    SEGMENTS_JSON=$(echo "$OUTPUT" | grep "^\[" | while IFS= read -r line; do
-        START=$(echo "$line" | sed -E 's/\[([0-9.]+)s - .*/\1/' || echo "0")
-        END=$(echo "$line" | sed -E 's/.*- ([0-9.]+)s\].*/\1/' || echo "0")
-        SEGMENT_TEXT=$(echo "$line" | sed -E 's/.*\]: (.*)/\1/' || echo "")
+    # Use printf '%s\n' instead of echo to safely handle special characters
+    SEGMENTS_JSON=$(printf '%s\n' "$OUTPUT" | grep "^\[" | while IFS= read -r line; do
+        START=$(printf '%s\n' "$line" | sed -E 's/\[([0-9.]+)s - .*/\1/' || echo "0")
+        END=$(printf '%s\n' "$line" | sed -E 's/.*- ([0-9.]+)s\].*/\1/' || echo "0")
+        SEGMENT_TEXT=$(printf '%s\n' "$line" | sed -E 's/.*\]: (.*)/\1/' || echo "")
         jq -n --arg start "$START" --arg end "$END" --arg text "$SEGMENT_TEXT" \
             '{start: ($start|tonumber), end: ($end|tonumber), text: $text}'
     done | jq -s '.' 2>/dev/null || echo '[]')
@@ -163,5 +170,5 @@ if [[ "$OUTPUT_FORMAT" == "json" ]]; then
         --argjson segments "$SEGMENTS_JSON" \
         '{text: $text, model: $model, device: $device, processing_time_ms: $time, segments: $segments}'
 else
-    echo "$OUTPUT"
+    printf '%s\n' "$OUTPUT"
 fi

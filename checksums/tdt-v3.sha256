@@ -1,0 +1,11 @@
+# SHA256 checksums for parakeet-tdt-0.6b-v3-onnx model files
+# Source: https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx
+#
+# To generate checksums after download:
+#   cd ~/.parakeet/tdt && sha256sum encoder-model.onnx encoder-model.onnx.data decoder_joint-model.onnx vocab.txt > checksums.sha256
+#
+# These checksums should be updated when model versions change.
+# Current version: v3
+
+# Placeholder checksums - replace with actual values after first download
+# Run: make download-models && cd ~/.parakeet/tdt && sha256sum * > /path/to/checksums/tdt-v3.sha256

@@ -1,4 +1,4 @@
-.PHONY: build install download-models download-models-coreml clean check docker-build docker-push
+.PHONY: build install download-models download-models-coreml clean check docker-build docker-push verify-checksums generate-checksums
 
 INSTALL_DIR := $(HOME)/.local/bin
 MODELS_DIR := $(HOME)/.parakeet
@@ -44,6 +44,27 @@ download-models:
 	curl -L -o $(MODELS_DIR)/tdt/vocab.txt "$(TDT_BASE)/vocab.txt"
 	@echo ""
 	@echo "TDT model downloaded! (~2.4GB)"
+	@echo ""
+	@echo "To verify checksums (optional):"
+	@echo "  make verify-checksums"
+
+verify-checksums:
+	@echo "Verifying model checksums..."
+	@if [ -f "$(CURDIR)/checksums/tdt-v3.sha256" ] && grep -q "^[a-f0-9]" "$(CURDIR)/checksums/tdt-v3.sha256" 2>/dev/null; then \
+		cd $(MODELS_DIR)/tdt && sha256sum -c $(CURDIR)/checksums/tdt-v3.sha256 && echo "✓ Checksums verified!"; \
+	else \
+		echo "⚠ No checksums available. Generate with: make generate-checksums"; \
+	fi
+
+generate-checksums:
+	@echo "Generating checksums for downloaded models..."
+	@if [ -d "$(MODELS_DIR)/tdt" ] && [ -f "$(MODELS_DIR)/tdt/encoder-model.onnx" ]; then \
+		cd $(MODELS_DIR)/tdt && sha256sum encoder-model.onnx encoder-model.onnx.data decoder_joint-model.onnx vocab.txt > $(CURDIR)/checksums/tdt-v3.sha256; \
+		echo "✓ Checksums saved to checksums/tdt-v3.sha256"; \
+	else \
+		echo "✗ Models not found. Run 'make download-models' first."; \
+		exit 1; \
+	fi
 
 download-models-coreml:
 	@echo "Downloading int8 TDT model for CoreML to $(MODELS_DIR)/tdt..."
@@ -99,6 +120,10 @@ test-unit:
 	RESULT=$$($$CLI --input /tmp/parakeet-test-dummy.wav --model invalid 2>&1); \
 	rm -f /tmp/parakeet-test-dummy.wav; \
 	if echo "$$RESULT" | jq -e '.error | contains("Invalid model")' >/dev/null 2>&1; then echo "✓"; PASS=$$((PASS+1)); else echo "✗"; FAIL=$$((FAIL+1)); fi; \
+	\
+	printf "Invalid device type: "; \
+	RESULT=$$($$CLI --device invalid 2>&1); \
+	if echo "$$RESULT" | jq -e '.error | contains("Invalid device")' >/dev/null 2>&1; then echo "✓"; PASS=$$((PASS+1)); else echo "✗"; FAIL=$$((FAIL+1)); fi; \
 	\
 	echo ""; echo "--- Path Traversal ---"; \
 	\
