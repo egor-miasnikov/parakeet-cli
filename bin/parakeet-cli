@@ -129,9 +129,9 @@ START_MS=$(($(date +%s) * 1000 + $(date +%N 2>/dev/null | cut -c1-3 || echo 0)))
 
 # Run transcription (with -- to separate options from filename)
 if [[ "$MODEL_TYPE" == ctc* ]]; then
-    OUTPUT=$("$TRANSCRIBE_BIN" -- "$INPUT_FILE_RESOLVED" 2>&1) || error_exit "Transcription failed"
+    OUTPUT=$("$TRANSCRIBE_BIN" "$INPUT_FILE_RESOLVED" 2>&1) || error_exit "Transcription failed"
 else
-    OUTPUT=$(cd "$MODELS_DIR_RESOLVED" && "$TRANSCRIBE_BIN" -- "$INPUT_FILE_RESOLVED" tdt 2>&1) || error_exit "Transcription failed"
+    OUTPUT=$(cd "$MODELS_DIR_RESOLVED" && "$TRANSCRIBE_BIN" "$INPUT_FILE_RESOLVED" tdt 2>&1) || error_exit "Transcription failed"
 fi
 
 END_MS=$(($(date +%s) * 1000 + $(date +%N 2>/dev/null | cut -c1-3 || echo 0)))
