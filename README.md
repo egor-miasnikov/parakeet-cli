@@ -1,0 +1,198 @@
+# parakeet-cli
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Shell: Bash](https://img.shields.io/badge/Shell-Bash-green.svg)](https://www.gnu.org/software/bash/)
+
+CLI wrapper for [parakeet-rs](https://github.com/altunenes/parakeet-rs) — fast speech-to-text using NVIDIA Parakeet models with structured JSON output.
+
+## Features
+
+- **JSON output** — structured output for easy integration with scripts and services
+- **TDT model** — multilingual support (25 languages), high accuracy
+- **CTC model** — English-only, faster inference
+- **Speaker diarization** — identify multiple speakers
+- **Timestamps** — word and sentence-level timing
+
+## Quick Start
+
+```bash
+# Install
+make build && make install
+
+# Download models (~2.4GB)
+make download-models
+
+# Transcribe
+parakeet-cli --input audio.wav
+```
+
+## Installation
+
+### Prerequisites
+
+| Dependency | Purpose | Install |
+|------------|---------|---------|
+| **Rust** | Build parakeet-rs | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
+| **jq** | JSON output | `brew install jq` / `apt install jq` |
+
+### Build & Install
+
+```bash
+make build      # Clone parakeet-rs, build binaries
+make install    # Install to ~/.local/bin/
+```
+
+Add to your shell profile if needed:
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+### Download Models
+
+```bash
+make download-models        # TDT model (~2.4GB, multilingual)
+make download-diarization   # Diarization model (optional)
+```
+
+### Verify Installation
+
+```bash
+make check
+```
+
+## Usage
+
+### Basic
+
+```bash
+# JSON output (default)
+parakeet-cli --input audio.wav
+
+# Plain text output
+parakeet-cli --input audio.wav --output-format text
+
+# Use CTC model (English, faster)
+parakeet-cli --input audio.wav --model ctc
+```
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--input <file>` | Input audio file (WAV 16kHz mono recommended) | required |
+| `--output-format <fmt>` | Output format: `json` or `text` | `json` |
+| `--model <type>` | Model: `tdt`, `tdt-0.6b`, `ctc`, `ctc-1.1b` | `tdt` |
+| `--models-dir <dir>` | Models directory | `~/.parakeet` |
+| `--timestamps <mode>` | Timestamp mode: `words` or `sentences` | `words` |
+| `--diarize` | Enable speaker diarization | off |
+| `--max-speakers <n>` | Max speakers for diarization | `4` |
+| `--device <dev>` | Device: `cpu` or `cuda` | `cpu` |
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PARAKEET_MODELS_DIR` | Models directory | `~/.parakeet` |
+| `PARAKEET_TRANSCRIBE_BIN` | Path to parakeet-transcribe | searched in PATH |
+
+## JSON Output
+
+### Success
+
+```json
+{
+    "text": "Hello, this is a test.",
+    "model": "parakeet-tdt",
+    "device": "cpu",
+    "processing_time_ms": 1200,
+    "segments": [
+        {"start": 0.00, "end": 3.60, "text": "Hello, this is a test."}
+    ]
+}
+```
+
+### Error
+
+Errors are returned as JSON on stderr with exit code 1:
+
+```json
+{"error": "Input file not found: audio.wav"}
+```
+
+## Integration Examples
+
+### Bash
+
+```bash
+result=$(parakeet-cli --input audio.wav)
+text=$(echo "$result" | jq -r '.text')
+```
+
+### TypeScript/Node.js
+
+```typescript
+import { execSync } from 'child_process';
+
+const result = execSync('parakeet-cli --input audio.wav', { encoding: 'utf-8' });
+const { text, segments } = JSON.parse(result);
+```
+
+### Go
+
+```go
+cmd := exec.Command("parakeet-cli", "--input", "audio.wav")
+output, err := cmd.Output()
+if err != nil {
+    log.Fatal(err)
+}
+
+var result struct {
+    Text     string `json:"text"`
+    Segments []struct {
+        Start float64 `json:"start"`
+        End   float64 `json:"end"`
+        Text  string  `json:"text"`
+    } `json:"segments"`
+}
+json.Unmarshal(output, &result)
+```
+
+### Python
+
+```python
+import subprocess
+import json
+
+result = subprocess.run(
+    ['parakeet-cli', '--input', 'audio.wav'],
+    capture_output=True, text=True, check=True
+)
+data = json.loads(result.stdout)
+print(data['text'])
+```
+
+## Audio Format
+
+For best results, use 16kHz mono WAV. Convert with ffmpeg:
+
+```bash
+ffmpeg -i input.mp3 -ar 16000 -ac 1 -c:a pcm_s16le output.wav
+```
+
+## Development
+
+```bash
+make test           # Run all tests
+make test-unit      # Unit tests only (no models needed)
+make test-e2e       # E2E test (requires models, macOS)
+make clean          # Remove build artifacts
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE)
+
+## Credits
+
+- [parakeet-rs](https://github.com/altunenes/parakeet-rs) by altunenes
+- [NVIDIA Parakeet](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) models

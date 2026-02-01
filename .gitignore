@@ -1,0 +1,22 @@
+# Built binaries (build locally with `make build`)
+bin/parakeet-transcribe
+bin/parakeet-diarize
+
+# Build artifacts
+*.o
+*.a
+
+# macOS
+.DS_Store
+
+# Editor
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Test artifacts
+/tmp/
+*.wav
+*.aiff

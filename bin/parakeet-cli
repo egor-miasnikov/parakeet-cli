@@ -1,0 +1,155 @@
+#!/bin/bash
+# parakeet-cli wrapper - outputs JSON for downstream services (TS/Go)
+
+set -euo pipefail
+
+VERSION="0.4.0"
+MODELS_DIR="${PARAKEET_MODELS_DIR:-$HOME/.parakeet}"
+TRANSCRIBE_BIN="${PARAKEET_TRANSCRIBE_BIN:-parakeet-transcribe}"
+MODEL_TYPE="tdt"
+INPUT_FILE=""
+OUTPUT_FORMAT="json"
+TIMESTAMPS="words"
+DIARIZE=false
+MAX_SPEAKERS=4
+DEVICE=""
+
+# Error output helper (always valid JSON on stderr)
+error_exit() {
+    jq -n --arg msg "$1" '{"error": $msg}' >&2
+    exit 1
+}
+
+# Check dependencies
+command -v jq >/dev/null 2>&1 || error_exit "jq is required but not installed"
+command -v "$TRANSCRIBE_BIN" >/dev/null 2>&1 || error_exit "parakeet-transcribe not found in PATH"
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --input)
+            INPUT_FILE="$2"
+            shift 2
+            ;;
+        --output-format)
+            OUTPUT_FORMAT="$2"
+            shift 2
+            ;;
+        --model)
+            MODEL_TYPE="$2"
+            shift 2
+            ;;
+        --models-dir)
+            MODELS_DIR="$2"
+            shift 2
+            ;;
+        --timestamps)
+            TIMESTAMPS="$2"
+            shift 2
+            ;;
+        --diarize)
+            DIARIZE=true
+            shift
+            ;;
+        --max-speakers)
+            MAX_SPEAKERS="$2"
+            shift 2
+            ;;
+        --device)
+            DEVICE="$2"
+            shift 2
+            ;;
+        --version)
+            echo "parakeet-cli $VERSION (parakeet-rs wrapper)"
+            exit 0
+            ;;
+        --help)
+            echo "Usage: parakeet-cli --input <audio.wav> [options]"
+            echo ""
+            echo "Options:"
+            echo "  --input <file>       Input audio file (WAV 16kHz mono)"
+            echo "  --output-format      Output format: json (default) or text"
+            echo "  --model <type>       Model type: tdt-0.6b (default) or ctc-1.1b"
+            echo "  --models-dir <dir>   Models directory (default: ~/.parakeet)"
+            echo "  --timestamps <mode>  Timestamp mode: words or sentences"
+            echo "  --diarize            Enable speaker diarization"
+            echo "  --max-speakers <n>   Max speakers for diarization (default: 4)"
+            echo "  --device <dev>       Device: cpu or cuda"
+            echo "  --version            Show version"
+            echo ""
+            echo "Environment:"
+            echo "  PARAKEET_MODELS_DIR     Models directory"
+            echo "  PARAKEET_TRANSCRIBE_BIN Path to parakeet-transcribe binary"
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            error_exit "Unknown option: $1"
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+# Validate input file
+[[ -z "$INPUT_FILE" ]] && error_exit "No input file specified"
+
+# Resolve to absolute path and validate
+INPUT_FILE_RESOLVED=$(realpath -- "$INPUT_FILE" 2>/dev/null) || error_exit "Invalid path: $INPUT_FILE"
+[[ ! -f "$INPUT_FILE_RESOLVED" ]] && error_exit "Input file not found: $INPUT_FILE"
+
+# Validate models directory
+MODELS_DIR_RESOLVED=$(realpath -- "$MODELS_DIR" 2>/dev/null) || error_exit "Invalid models directory: $MODELS_DIR"
+[[ ! -d "$MODELS_DIR_RESOLVED" ]] && error_exit "Models directory not found: $MODELS_DIR"
+
+# Validate model type (whitelist)
+case "$MODEL_TYPE" in
+    tdt|tdt-0.6b|ctc|ctc-1.1b) ;;
+    *) error_exit "Invalid model type: $MODEL_TYPE (allowed: tdt, tdt-0.6b, ctc, ctc-1.1b)" ;;
+esac
+
+# Timing using portable date (milliseconds)
+START_MS=$(($(date +%s) * 1000 + $(date +%N 2>/dev/null | cut -c1-3 || echo 0)))
+
+# Run transcription (with -- to separate options from filename)
+if [[ "$MODEL_TYPE" == ctc* ]]; then
+    OUTPUT=$("$TRANSCRIBE_BIN" -- "$INPUT_FILE_RESOLVED" 2>&1) || error_exit "Transcription failed"
+else
+    OUTPUT=$(cd "$MODELS_DIR_RESOLVED" && "$TRANSCRIBE_BIN" -- "$INPUT_FILE_RESOLVED" tdt 2>&1) || error_exit "Transcription failed"
+fi
+
+END_MS=$(($(date +%s) * 1000 + $(date +%N 2>/dev/null | cut -c1-3 || echo 0)))
+PROCESSING_TIME=$((END_MS - START_MS))
+[[ $PROCESSING_TIME -lt 0 ]] && PROCESSING_TIME=0
+
+# Parse output and convert to JSON
+if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+    # Extract text (filter out status lines)
+    TEXT=$(echo "$OUTPUT" | grep -v "^Audio info:" | grep -v "^Loading" | grep -v "^Sentencess:" | grep -v "^\[" | grep -v "^✓" | grep -v "^Words" | head -1 || echo "")
+
+    # Build segments array safely with jq
+    SEGMENTS_JSON=$(echo "$OUTPUT" | grep "^\[" | while IFS= read -r line; do
+        START=$(echo "$line" | sed -E 's/\[([0-9.]+)s - .*/\1/' || echo "0")
+        END=$(echo "$line" | sed -E 's/.*- ([0-9.]+)s\].*/\1/' || echo "0")
+        SEGMENT_TEXT=$(echo "$line" | sed -E 's/.*\]: (.*)/\1/' || echo "")
+        jq -n --arg start "$START" --arg end "$END" --arg text "$SEGMENT_TEXT" \
+            '{start: ($start|tonumber), end: ($end|tonumber), text: $text}'
+    done | jq -s '.' 2>/dev/null || echo '[]')
+
+    DEVICE_USED="${DEVICE:-cpu}"
+
+    # Safe JSON output via jq
+    jq -n \
+        --arg text "$TEXT" \
+        --arg model "parakeet-$MODEL_TYPE" \
+        --arg device "$DEVICE_USED" \
+        --argjson time "$PROCESSING_TIME" \
+        --argjson segments "$SEGMENTS_JSON" \
+        '{text: $text, model: $model, device: $device, processing_time_ms: $time, segments: $segments}'
+else
+    echo "$OUTPUT"
+fi
