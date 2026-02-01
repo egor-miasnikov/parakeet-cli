@@ -127,11 +127,11 @@ command -v "$TRANSCRIBE_BIN" >/dev/null 2>&1 || error_exit "parakeet-transcribe 
 # Timing using portable date (milliseconds)
 START_MS=$(($(date +%s) * 1000 + $(date +%N 2>/dev/null | cut -c1-3 || echo 0)))
 
-# Run transcription (with -- to separate options from filename)
+# Run transcription (stderr passes through to user, only stdout captured)
 if [[ "$MODEL_TYPE" == ctc* ]]; then
-    OUTPUT=$("$TRANSCRIBE_BIN" "$INPUT_FILE_RESOLVED" 2>&1) || error_exit "Transcription failed"
+    OUTPUT=$("$TRANSCRIBE_BIN" "$INPUT_FILE_RESOLVED") || error_exit "Transcription failed"
 else
-    OUTPUT=$(cd "$MODELS_DIR_RESOLVED" && "$TRANSCRIBE_BIN" "$INPUT_FILE_RESOLVED" tdt 2>&1) || error_exit "Transcription failed"
+    OUTPUT=$(cd "$MODELS_DIR_RESOLVED" && "$TRANSCRIBE_BIN" "$INPUT_FILE_RESOLVED" tdt) || error_exit "Transcription failed"
 fi
 
 END_MS=$(($(date +%s) * 1000 + $(date +%N 2>/dev/null | cut -c1-3 || echo 0)))
@@ -140,8 +140,8 @@ PROCESSING_TIME=$((END_MS - START_MS))
 
 # Parse output and convert to JSON
 if [[ "$OUTPUT_FORMAT" == "json" ]]; then
-    # Extract text (filter out status lines)
-    TEXT=$(echo "$OUTPUT" | grep -v "^Audio info:" | grep -v "^Loading" | grep -v "^Sentencess:" | grep -v "^\[" | grep -v "^✓" | grep -v "^Words" | head -1 || echo "")
+    # Extract text (filter out status lines and CoreML warnings)
+    TEXT=$(echo "$OUTPUT" | grep -v "^Audio info:" | grep -v "^Loading" | grep -v "^Sentencess:" | grep -v "^\[" | grep -v "^✓" | grep -v "^Words" | grep -v "^Context leak" | head -1 || echo "")
 
     # Build segments array safely with jq
     SEGMENTS_JSON=$(echo "$OUTPUT" | grep "^\[" | while IFS= read -r line; do
