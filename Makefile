@@ -1,4 +1,4 @@
-.PHONY: build install download-models clean check docker-build docker-push
+.PHONY: build install download-models download-models-coreml clean check docker-build docker-push
 
 INSTALL_DIR := $(HOME)/.local/bin
 MODELS_DIR := $(HOME)/.parakeet
@@ -6,6 +6,7 @@ TMP_DIR := /tmp/parakeet-rs-build
 
 # HuggingFace URLs
 TDT_BASE := https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main
+TDT_INT8_BASE := https://huggingface.co/smcleod/parakeet-tdt-0.6b-v2-int8/resolve/main
 DIAR_BASE := https://huggingface.co/altunenes/parakeet-rs/resolve/main
 
 build:
@@ -43,6 +44,16 @@ download-models:
 	curl -L -o $(MODELS_DIR)/tdt/vocab.txt "$(TDT_BASE)/vocab.txt"
 	@echo ""
 	@echo "TDT model downloaded! (~2.4GB)"
+
+download-models-coreml:
+	@echo "Downloading int8 TDT model for CoreML to $(MODELS_DIR)/tdt..."
+	@echo "Note: CoreML requires int8 models without external data files."
+	mkdir -p $(MODELS_DIR)/tdt
+	curl -L -o $(MODELS_DIR)/tdt/encoder-model.int8.onnx "$(TDT_INT8_BASE)/encoder-model.int8.onnx"
+	curl -L -o $(MODELS_DIR)/tdt/decoder_joint-model.int8.onnx "$(TDT_INT8_BASE)/decoder_joint-model.int8.onnx"
+	curl -L -o $(MODELS_DIR)/tdt/vocab.txt "$(TDT_INT8_BASE)/vocab.txt"
+	@echo ""
+	@echo "CoreML-compatible TDT model downloaded! (~630MB)"
 
 download-diarization:
 	@echo "Downloading diarization model..."

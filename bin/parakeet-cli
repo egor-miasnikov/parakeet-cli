@@ -80,7 +80,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --timestamps <mode>  Timestamp mode: words or sentences"
             echo "  --diarize            Enable speaker diarization"
             echo "  --max-speakers <n>   Max speakers for diarization (default: 4)"
-            echo "  --device <dev>       Device: cpu or cuda"
+            echo "  --device <dev>       Device: cpu, cuda, or coreml (macOS)"
             echo "  --version            Show version"
             echo ""
             echo "Environment:"

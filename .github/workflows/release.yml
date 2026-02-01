@@ -30,6 +30,10 @@ jobs:
           - name: macos-arm64
             os: macos-latest
             target: aarch64-apple-darwin
+          - name: macos-arm64-coreml
+            os: macos-latest
+            target: aarch64-apple-darwin
+            features: coreml
 
     steps:
       - uses: actions/checkout@v4
@@ -59,6 +63,12 @@ jobs:
           git clone --depth 1 https://github.com/altunenes/parakeet-rs.git /tmp/parakeet-rs
           cd /tmp/parakeet-rs
           FEATURES="${{ matrix.features }}"
+
+          # For CoreML builds, use patched example with CoreML execution provider
+          if [ "$FEATURES" = "coreml" ]; then
+            cp $GITHUB_WORKSPACE/patches/coreml-raw.rs examples/raw.rs
+          fi
+
           if [ -n "$FEATURES" ]; then
             cargo build --release --examples --target ${{ matrix.target }} --features "$FEATURES"
           else

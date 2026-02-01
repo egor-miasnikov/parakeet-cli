@@ -42,10 +42,16 @@ tar xzf parakeet-cli-linux-x86_64.tar.gz
 cd parakeet-cli-*-linux-x86_64
 ./install.sh
 
-# macOS ARM (Apple Silicon)
+# macOS ARM (Apple Silicon) - CPU
 curl -LO https://github.com/egor-miasnikov/parakeet-cli/releases/latest/download/parakeet-cli-macos-arm64.tar.gz
 tar xzf parakeet-cli-macos-arm64.tar.gz
 cd parakeet-cli-*-macos-arm64
+./install.sh
+
+# macOS ARM with CoreML (Metal GPU acceleration)
+curl -LO https://github.com/egor-miasnikov/parakeet-cli/releases/latest/download/parakeet-cli-macos-arm64-coreml.tar.gz
+tar xzf parakeet-cli-macos-arm64-coreml.tar.gz
+cd parakeet-cli-*-macos-arm64-coreml
 ./install.sh
 ```
 
@@ -147,7 +153,7 @@ parakeet-cli --input audio.wav --model ctc
 | `--timestamps <mode>` | Timestamp mode: `words` or `sentences` | `words` |
 | `--diarize` | Enable speaker diarization | off |
 | `--max-speakers <n>` | Max speakers for diarization | `4` |
-| `--device <dev>` | Device: `cpu` or `cuda` | `cpu` |
+| `--device <dev>` | Device: `cpu`, `cuda`, or `coreml` | `cpu` |
 
 ### Environment Variables
 
@@ -231,6 +237,44 @@ result = subprocess.run(
 data = json.loads(result.stdout)
 print(data['text'])
 ```
+
+## GPU Acceleration
+
+### NVIDIA CUDA (Linux)
+
+Use the `linux-x86_64-cuda` release with NVIDIA GPUs:
+
+```bash
+# Install CUDA version
+curl -LO https://github.com/egor-miasnikov/parakeet-cli/releases/latest/download/parakeet-cli-linux-x86_64-cuda.tar.gz
+
+# Run with GPU
+parakeet-cli --input audio.wav --device cuda
+```
+
+### Apple CoreML (macOS)
+
+Use the `macos-arm64-coreml` release for Metal GPU acceleration on Apple Silicon:
+
+```bash
+# Install CoreML version
+curl -LO https://github.com/egor-miasnikov/parakeet-cli/releases/latest/download/parakeet-cli-macos-arm64-coreml.tar.gz
+tar xzf parakeet-cli-macos-arm64-coreml.tar.gz
+cd parakeet-cli-*-macos-arm64-coreml
+./install.sh
+
+# Download CoreML-compatible int8 models (~630MB instead of ~2.4GB)
+make download-models-coreml
+
+# Run with Metal GPU (automatic, no --device flag needed)
+parakeet-cli --input audio.wav
+```
+
+**Notes:**
+- CoreML requires int8 quantized models (no external data files)
+- First run compiles the model for CoreML (~3s), subsequent runs use cached compilation
+- Requires macOS 12+ and Apple Silicon (M1/M2/M3/M4)
+- Typical speedup: **2-4x** vs CPU
 
 ## Audio Format
 
