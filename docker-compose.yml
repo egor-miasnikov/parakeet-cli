@@ -1,0 +1,38 @@
+# Docker Compose examples for parakeet-cli
+#
+# Usage:
+#   docker compose run --rm slim --input /data/audio.wav
+#   docker compose run --rm full --input /data/audio.wav
+
+services:
+  # Slim image - models mounted as volume (~100MB image)
+  slim:
+    image: ghcr.io/egor-miasnikov/parakeet-cli:slim
+    build:
+      context: .
+      target: runtime
+    volumes:
+      - ${PARAKEET_MODELS_DIR:-~/.parakeet}:/models:ro
+      - ./data:/data:ro
+    working_dir: /data
+
+  # Full image - models included (~2.5GB image)
+  full:
+    image: ghcr.io/egor-miasnikov/parakeet-cli:full
+    build:
+      context: .
+      target: full
+    volumes:
+      - ./data:/data:ro
+    working_dir: /data
+
+  # Development - build from source
+  dev:
+    build:
+      context: .
+      target: runtime
+    volumes:
+      - ${PARAKEET_MODELS_DIR:-~/.parakeet}:/models:ro
+      - ./data:/data:ro
+      - ./bin/parakeet-cli:/usr/local/bin/parakeet-cli:ro
+    working_dir: /data

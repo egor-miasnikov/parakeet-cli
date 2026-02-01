@@ -1,4 +1,4 @@
-.PHONY: build install download-models clean check
+.PHONY: build install download-models clean check docker-build docker-push
 
 INSTALL_DIR := $(HOME)/.local/bin
 MODELS_DIR := $(HOME)/.parakeet
@@ -139,3 +139,20 @@ test-e2e:
 		echo "✗ E2E test failed: invalid JSON structure"; \
 		exit 1; \
 	fi
+
+# Docker targets
+DOCKER_IMAGE := ghcr.io/egor-miasnikov/parakeet-cli
+
+docker-build:
+	@echo "Building Docker images..."
+	docker build --target runtime -t $(DOCKER_IMAGE):slim .
+	docker build --target full -t $(DOCKER_IMAGE):full .
+	@echo ""
+	@echo "Built images:"
+	@echo "  $(DOCKER_IMAGE):slim  (~100MB, models via volume)"
+	@echo "  $(DOCKER_IMAGE):full  (~2.5GB, models included)"
+
+docker-push: docker-build
+	@echo "Pushing Docker images..."
+	docker push $(DOCKER_IMAGE):slim
+	docker push $(DOCKER_IMAGE):full

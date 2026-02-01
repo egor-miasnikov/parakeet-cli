@@ -1,6 +1,7 @@
 # parakeet-cli
 
 [![CI](https://github.com/egor-miasnikov/parakeet-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/egor-miasnikov/parakeet-cli/actions/workflows/ci.yml)
+[![Docker](https://github.com/egor-miasnikov/parakeet-cli/actions/workflows/docker.yml/badge.svg)](https://github.com/egor-miasnikov/parakeet-cli/actions/workflows/docker.yml)
 [![Release](https://img.shields.io/github/v/release/egor-miasnikov/parakeet-cli)](https://github.com/egor-miasnikov/parakeet-cli/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Shell: Bash](https://img.shields.io/badge/Shell-Bash-green.svg)](https://www.gnu.org/software/bash/)
@@ -80,6 +81,35 @@ make download-diarization   # Diarization model (optional)
 
 ```bash
 make check
+```
+
+### Docker
+
+Two image variants are available:
+
+| Image | Size | Models | Use case |
+|-------|------|--------|----------|
+| `slim` / `latest` | ~100MB | Volume mount | Production with shared models |
+| `full` | ~2.5GB | Included | Standalone, ready to use |
+
+```bash
+# Slim - mount models from host
+docker run --rm \
+  -v ~/.parakeet:/models:ro \
+  -v $(pwd):/data:ro \
+  ghcr.io/egor-miasnikov/parakeet-cli:slim \
+  --input /data/audio.wav
+
+# Full - models included
+docker run --rm \
+  -v $(pwd):/data:ro \
+  ghcr.io/egor-miasnikov/parakeet-cli:full \
+  --input /data/audio.wav
+```
+
+Build locally:
+```bash
+make docker-build
 ```
 
 ## Usage
