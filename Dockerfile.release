@@ -1,0 +1,62 @@
+# syntax=docker/dockerfile:1
+#
+# Dockerfile.release - Uses pre-built binaries from GitHub Release
+# Much faster than compiling (~2 min vs ~40 min)
+#
+
+# =============================================================================
+# Stage 1: Runtime image (slim)
+# =============================================================================
+FROM ubuntu:24.04 AS runtime
+
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        jq \
+        ca-certificates \
+        curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy pre-built binaries from build context
+COPY binaries/parakeet-transcribe /usr/local/bin/parakeet-transcribe
+COPY binaries/parakeet-diarize /usr/local/bin/parakeet-diarize
+COPY bin/parakeet-cli /usr/local/bin/parakeet-cli
+
+RUN chmod +x /usr/local/bin/parakeet-cli \
+             /usr/local/bin/parakeet-transcribe \
+             /usr/local/bin/parakeet-diarize
+
+# Set environment
+ENV PARAKEET_MODELS_DIR=/models
+ENV PARAKEET_TRANSCRIBE_BIN=/usr/local/bin/parakeet-transcribe
+
+# Create directories
+RUN mkdir -p /models /data
+
+# Validate installation
+RUN parakeet-cli --version
+
+WORKDIR /data
+
+ENTRYPOINT ["parakeet-cli"]
+CMD ["--help"]
+
+# =============================================================================
+# Stage 2: Full image with models
+# =============================================================================
+FROM runtime AS full
+
+# HuggingFace model URLs
+ARG TDT_BASE=https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main
+
+# Download TDT model (~2.4GB)
+RUN mkdir -p /models/tdt && \
+    curl -L -o /models/tdt/encoder-model.onnx "${TDT_BASE}/encoder-model.onnx" && \
+    curl -L -o /models/tdt/encoder-model.onnx.data "${TDT_BASE}/encoder-model.onnx.data" && \
+    curl -L -o /models/tdt/decoder_joint-model.onnx "${TDT_BASE}/decoder_joint-model.onnx" && \
+    curl -L -o /models/tdt/vocab.txt "${TDT_BASE}/vocab.txt"
+
+WORKDIR /data
+
+ENTRYPOINT ["parakeet-cli"]
+CMD ["--help"]

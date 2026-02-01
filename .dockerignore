@@ -17,9 +17,12 @@ target/
 .DS_Store
 Thumbs.db
 
-# Local binaries (rebuilt in Docker)
+# Local binaries (rebuilt in Docker) - keep for local builds
 bin/parakeet-transcribe
 bin/parakeet-diarize
+
+# But allow binaries/ directory for CI builds with pre-built binaries
+!binaries/
 
 # Test files
 *.wav
